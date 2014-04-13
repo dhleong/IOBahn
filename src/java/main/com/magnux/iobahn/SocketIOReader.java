@@ -109,10 +109,10 @@ public class SocketIOReader extends WebSocketReader {
                 final String name = data.getString("name");
 
                 if (mEvents.containsKey(name)) {
-                    final JSONArray args = data.getJSONArray("args");
+                    final JSONArray args = data.optJSONArray("args");
 
                     final Object event;
-                    if (args.length() > 0) {
+                    if (args != null && args.length() > 0) {
                         final String arg = args.getString(0); // This only supports
                                                             // sending one argument!!!
 
