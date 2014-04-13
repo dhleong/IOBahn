@@ -35,7 +35,7 @@ public class SocketIOReader extends WebSocketReader {
     private final JsonFactory mJsonFactory;
 
     // / Holds reference to event subscription map created on master.
-    private final ConcurrentHashMap<String, EventMeta> mEvents;
+    private final ConcurrentHashMap<String, EventMeta<?>> mEvents;
 
     /**
      * A reader object is created in SocketIOConnection.
@@ -51,8 +51,9 @@ public class SocketIOReader extends WebSocketReader {
      * @param threadName
      *            The thread name we announce.
      */
-    public SocketIOReader(ConcurrentHashMap<String, EventMeta> events, Handler master, SocketChannel socket,
-            WebSocketOptions options, String threadName) {
+    public SocketIOReader(final ConcurrentHashMap<String, EventMeta<?>> events, 
+            final Handler master, final SocketChannel socket,
+            final WebSocketOptions options, final String threadName) {
         super(master, socket, options, threadName);
         mEvents = events;
 
@@ -104,23 +105,33 @@ public class SocketIOReader extends WebSocketReader {
                 final String id = parts[1];
                 final String endpoint = parts[2];
                 final String dataString = parts[3];
-                JSONObject data = new JSONObject(dataString);
-                String name = data.getString("name");
-                JSONArray args = data.getJSONArray("args");
-                String arg = args.getString(0); // This only supports
-                                                // sending one argument!!!
-                JsonParser parser = mJsonFactory.createJsonParser(arg);
-                Object event = null;
+                final JSONObject data = new JSONObject(dataString);
+                final String name = data.getString("name");
 
                 if (mEvents.containsKey(name)) {
+                    final JSONArray args = data.getJSONArray("args");
 
-                    EventMeta meta = mEvents.get(name);
-                    if (meta.mEventClass != null) {
-                        event = parser.readValueAs(meta.mEventClass);
-                    } else if (meta.mEventTypeRef != null) {
-                        event = parser.readValueAs(meta.mEventTypeRef);
+                    final Object event;
+                    if (args.length() > 0) {
+                        final String arg = args.getString(0); // This only supports
+                                                            // sending one argument!!!
+
+                        final JsonParser parser = mJsonFactory.createJsonParser(arg);
+
+                        final EventMeta<?> meta = mEvents.get(name);
+                        if (meta.mEventClass != null) {
+                            event = parser.readValueAs(meta.mEventClass);
+                        } else if (meta.mEventTypeRef != null) {
+                            event = parser.readValueAs(meta.mEventTypeRef);
+                        } else {
+                            event = null;
+                        }
+
+                        parser.close();
                     } else {
+                        event = null;
                     }
+
                     notify(new SocketIOMessage.Event(id, endpoint, name, event));
 
                 } else {
@@ -128,8 +139,6 @@ public class SocketIOReader extends WebSocketReader {
                     if (DEBUG)
                         Log.d(TAG, "SocketIO event for not-subscribed topic received");
                 }
-
-                parser.close();
                 break;
             case SocketIOMessage.MESSAGE_TYPE_ACK:
                 break;

@@ -43,32 +43,33 @@ public class SocketIOConnection extends WebSocketConnection implements SocketIO 
     /**
      * Event subscription metadata.
      */
-    public static class EventMeta {
+    public static class EventMeta<T> {
 
-        EventMeta(EventHandler handler, Class<?> resultClass) {
+        // Event handler to be fired on.
+        public final EventHandler mEventHandler;
+
+        // Desired event type or null.
+        public final Class<T> mEventClass;
+
+        // Desired event type or null.
+        public final TypeReference<T> mEventTypeRef;
+
+        EventMeta(EventHandler<T> handler, Class<T> resultClass) {
             this.mEventHandler = handler;
             this.mEventClass = resultClass;
             this.mEventTypeRef = null;
         }
 
-        EventMeta(EventHandler handler, TypeReference<?> resultTypeReference) {
+        EventMeta(EventHandler<T> handler, TypeReference<T> resultTypeReference) {
             this.mEventHandler = handler;
             this.mEventClass = null;
             this.mEventTypeRef = resultTypeReference;
         }
 
-        // / Event handler to be fired on.
-        public EventHandler mEventHandler;
-
-        // / Desired event type or null.
-        public Class<?> mEventClass;
-
-        // / Desired event type or null.
-        public TypeReference<?> mEventTypeRef;
     }
 
     // / Metadata about active event subscriptions.
-    private final ConcurrentHashMap<String, EventMeta> mEvents = new ConcurrentHashMap<String, EventMeta>();
+    private final ConcurrentHashMap<String, EventMeta<?>> mEvents = new ConcurrentHashMap<String, EventMeta<?>>();
 
     // / The session handler provided to connect().
     private SocketIO.ConnectionHandler mSessionHandler;
@@ -129,10 +130,12 @@ public class SocketIOConnection extends WebSocketConnection implements SocketIO 
      */
     private class SocketIOConnector extends AsyncTask<Void, Void, String> {
         String wsUri;
-        SocketIO.ConnectionHandler sessionHandler;
-        SocketIOOptions options;
+        final SocketIO.ConnectionHandler sessionHandler;
+        final SocketIOOptions options;
 
-        public SocketIOConnector(String wsUri, SocketIO.ConnectionHandler sessionHandler, SocketIOOptions options){
+        public SocketIOConnector(final String wsUri, 
+                final SocketIO.ConnectionHandler sessionHandler, 
+                final SocketIOOptions options) {
             super();
             this.wsUri = wsUri;
             this.sessionHandler = sessionHandler;
@@ -145,17 +148,20 @@ public class SocketIOConnection extends WebSocketConnection implements SocketIO 
             Thread.currentThread().setName("SocketIOConnector");
 
             try {
-                HttpPost post = new HttpPost("http"+wsUri.substring(2) + "/socket.io/1/");
-                String line = downloadUriAsString(post);
-                String[] parts = line.split(":");
-                String sessionId = parts[0];
-                String heartbeat = parts[1];
+                final HttpPost post = new HttpPost("http"
+                    + wsUri.substring(2) + "/socket.io/1/");
+                final String line = downloadUriAsString(post);
+
+                // TODO there's no need to allocate an array
+                //  just for these... but since connect will
+                //  not happen often, let's not over-optimize yet
+                final String[] parts = line.split(":");
+                final String sessionId = parts[0];
+                final String heartbeat = parts[1];
                 if (!"".equals(heartbeat))
                     mHeartbeat = Integer.parseInt(heartbeat) / 2 * 1000;
-                String transportsLine = parts[3];
-                String[] transports = transportsLine.split(",");
-                HashSet<String> set = new HashSet<String>(Arrays.asList(transports));
-                if (!set.contains("websocket"))
+                final String transportsLine = parts[3];
+                if (transportsLine.indexOf("websocket") == -1)
                     throw new Exception("websocket not supported");
 
                 wsUri = wsUri+"/socket.io/1/websocket/" + sessionId;
@@ -250,7 +256,7 @@ public class SocketIOConnection extends WebSocketConnection implements SocketIO 
            SocketIOMessage.Event event = (SocketIOMessage.Event) message;
 
           if (mEvents.containsKey(event.mName)) {
-             EventMeta meta = mEvents.get(event.mName);
+             final EventMeta<?> meta = mEvents.get(event.mName);
              if (meta != null && meta.mEventHandler != null) {
                 meta.mEventHandler.onEvent(event.mEvent);
                 SocketIOMessage.ACK ack = new SocketIOMessage.ACK(event.mId,null);
@@ -260,7 +266,7 @@ public class SocketIOConnection extends WebSocketConnection implements SocketIO 
        } else if (message instanceof SocketIOMessage.Connect) {
 
            SocketIOMessage.Connect connect = (SocketIOMessage.Connect) message;
-           startHertbeat();
+           startHeartbeat();
            
           if (DEBUG) 
               Log.d(TAG, "Endpoint: " + connect.mEndpoint + " Params: " + connect.mParams);
@@ -273,40 +279,45 @@ public class SocketIOConnection extends WebSocketConnection implements SocketIO 
     
     @Override
     public void disconnect() {
-    	SocketIOMessage.Disconnect dis = new SocketIOMessage.Disconnect(null);
+    	final SocketIOMessage.Disconnect dis = new SocketIOMessage.Disconnect(null);
         mWriter.forward(dis);
         super.disconnect();
     }
     
     @Override
-    public void disconnect(String endpoint) {
-    	SocketIOMessage.Disconnect dis = new SocketIOMessage.Disconnect(endpoint);
+    public void disconnect(final String endpoint) {
+    	final SocketIOMessage.Disconnect dis = new SocketIOMessage.Disconnect(endpoint);
         mWriter.forward(dis);
     }
     
-    private void on(String name, EventMeta meta) {
+    private void on(final String name, final EventMeta<?> meta) {
         mEvents.put(name, meta);
     }
     
     
     @Override
-    public void on(String name, Class<?> eventType, EventHandler eventHandler) {
-        on(name, new EventMeta(eventHandler, eventType));
+    public <T> void on(final String name, final Class<T> eventType, 
+            final EventHandler<T> eventHandler) {
+        on(name, new EventMeta<T>(eventHandler, eventType));
     }
 
     @Override
-    public void on(String name, TypeReference<?> eventType, EventHandler eventHandler) {
-        on(name, new EventMeta(eventHandler, eventType));
+    public <T> void on(final String name, final TypeReference<T> eventType, 
+            final EventHandler<T> eventHandler) {
+        on(name, new EventMeta<T>(eventHandler, eventType));
     }
 
     @Override
-    public void emit(String name, Object event) {
+    public void emit(final String name, final Object event) {
         SocketIOMessage.Emit msg = new SocketIOMessage.Emit(name, event);
         mWriter.forward(msg);
     }
     
-    private void startHertbeat() {
+    private void startHeartbeat() {
+        // TODO does this need to be its own thread? can we reuse an existing one?
         new Thread() {
+
+            @Override
             public void run() {
                 while (isConnected()) {
                     try {
@@ -314,7 +325,7 @@ public class SocketIOConnection extends WebSocketConnection implements SocketIO 
                     } catch (InterruptedException e) {
                         e.printStackTrace();
                     }
-                    SocketIOMessage.Heartbeat hbeat = new SocketIOMessage.Heartbeat();
+                    final SocketIOMessage.Heartbeat hbeat = new SocketIOMessage.Heartbeat();
                     mWriter.forward(hbeat);
                 }
             };

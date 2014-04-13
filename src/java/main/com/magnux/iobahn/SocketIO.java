@@ -73,7 +73,7 @@ public interface SocketIO {
     /**
      * Handler for PubSub events.
      */
-    public interface EventHandler{
+    public interface EventHandler<T> {
 
         /**
          * Fired when an event is received.
@@ -84,7 +84,7 @@ public interface SocketIO {
          *            The event, transformed into the type that was specified
          *            when subscribing.
          */
-        public void onEvent(Object event);
+        public void onEvent(T event);
     }
 
     /**
@@ -98,7 +98,7 @@ public interface SocketIO {
      * @param eventHandler
      *            The event handler.
      */
-    public void on(String name, Class<?> eventType, EventHandler eventHandler);
+    public <T> void on(String name, Class<T> eventType, EventHandler<T> eventHandler);
 
     /**
      * Subscribe to an event. When already subscribed, overwrite the event
@@ -111,7 +111,7 @@ public interface SocketIO {
      * @param eventHandler
      *            The event handler.
      */
-    public void on(String name, TypeReference<?> eventType, EventHandler eventHandler);
+    public <T> void on(String name, TypeReference<T> eventType, EventHandler<T> eventHandler);
 
     /**
      * Emit an event.
