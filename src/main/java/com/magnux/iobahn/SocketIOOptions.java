@@ -11,6 +11,9 @@ public class SocketIOOptions extends WebSocketOptions {
 
     public SocketIOOptions() {
         super();
+        
+        // must be
+        setReceiveTextMessagesRaw(true);
     }
 
     /**

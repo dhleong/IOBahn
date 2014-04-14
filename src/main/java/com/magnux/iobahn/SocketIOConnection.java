@@ -100,7 +100,6 @@ public class SocketIOConnection extends WebSocketConnection implements SocketIO 
     @Override
     public void connect(final String wsUri, final SocketIO.ConnectionHandler sessionHandler) {
         final SocketIOOptions options = new SocketIOOptions();
-        options.setReceiveTextMessagesRaw(true);
         options.setMaxMessagePayloadSize(64*1024);
         options.setMaxFramePayloadSize(64*1024);
         options.setTcpNoDelay(true);
