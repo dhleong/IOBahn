@@ -6,17 +6,18 @@ import java.io.IOException;
 
 public interface JsonGenerator {
 
+    public abstract void writeRaw(final String arg0) throws IOException;
+
+    public abstract void writeRawNumber(final int arg0) throws IOException;
+
+
     public abstract void writeString(final String arg0) throws IOException;
 
     public abstract void writeStartObject() throws IOException;
 
     public abstract void writeStartArray() throws IOException;
 
-    public abstract void writeRaw(final String arg0) throws IOException;
-
     public abstract void writeObject(final Object arg0) throws IOException;
-
-    public abstract void writeNumber(final int arg0) throws IOException;
 
     public abstract void writeFieldName(final String arg0) throws IOException;
 

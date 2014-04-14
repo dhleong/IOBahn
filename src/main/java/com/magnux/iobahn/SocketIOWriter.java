@@ -74,7 +74,7 @@ public class SocketIOWriter extends WebSocketWriter {
 
             if (msg instanceof SocketIOMessage.Disconnect) {
 
-                generator.writeNumber(SocketIOMessage.MESSAGE_TYPE_DISCONNECT);
+                generator.writeRawNumber(SocketIOMessage.MESSAGE_TYPE_DISCONNECT);
                 final SocketIOMessage.Disconnect dis = (SocketIOMessage.Disconnect) msg;
                 
                 if (dis.mEndpoint != null){
@@ -84,14 +84,14 @@ public class SocketIOWriter extends WebSocketWriter {
 
             } else if (msg instanceof SocketIOMessage.Heartbeat) {
 
-                generator.writeNumber(SocketIOMessage.MESSAGE_TYPE_HEARTBEAT);
+                generator.writeRawNumber(SocketIOMessage.MESSAGE_TYPE_HEARTBEAT);
                 generator.writeRaw(":::");
 
             } else if (msg instanceof SocketIOMessage.Emit) {
 
                 final SocketIOMessage.Emit emit = (SocketIOMessage.Emit) msg;
                 
-                generator.writeNumber(SocketIOMessage.MESSAGE_TYPE_EVENT);
+                generator.writeRawNumber(SocketIOMessage.MESSAGE_TYPE_EVENT);
                 generator.writeRaw(":::");
                 generator.writeStartObject();
                 generator.writeFieldName("name");
@@ -106,7 +106,7 @@ public class SocketIOWriter extends WebSocketWriter {
 
                 final SocketIOMessage.ACK ack = (SocketIOMessage.ACK) msg;
 
-                generator.writeNumber(SocketIOMessage.MESSAGE_TYPE_ACK);
+                generator.writeRawNumber(SocketIOMessage.MESSAGE_TYPE_ACK);
                 generator.writeRaw(":::");
                 generator.writeRaw(ack.mId);
 

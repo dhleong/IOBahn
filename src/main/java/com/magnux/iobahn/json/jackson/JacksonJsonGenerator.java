@@ -29,7 +29,8 @@ public class JacksonJsonGenerator implements com.magnux.iobahn.json.JsonGenerato
     }
 
     @Override
-    public void writeNumber(final int arg0) throws IOException {
+    public void writeRawNumber(final int arg0) throws IOException {
+        // easy
         generator.writeNumber(arg0);
     }
 

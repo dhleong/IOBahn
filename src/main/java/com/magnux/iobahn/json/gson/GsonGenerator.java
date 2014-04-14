@@ -11,13 +11,41 @@ import com.magnux.iobahn.json.JsonGenerator;
 public class GsonGenerator implements JsonGenerator {
 
     private final OutputStreamWriter writer;
-    private final JsonWriter json;
     private final Gson gson;
+
+    private JsonWriter json;
 
     public GsonGenerator(final Gson gson, final OutputStream out) {
         this.gson = gson;
         writer = new OutputStreamWriter(out);
-        json = new JsonWriter(writer);
+    }
+
+    @Override
+    public void writeRawNumber(final int arg0) throws IOException {
+        writer.write(String.valueOf(arg0));
+        writer.flush();
+    }
+
+    @Override
+    public void writeRaw(final String arg0) throws IOException {
+        writer.write(arg0);
+        writer.flush();
+    }
+
+    @Override
+    public void writeStartObject() throws IOException {
+        if (json == null)
+            json = new JsonWriter(writer);
+
+        json.beginObject();
+    }
+
+    @Override
+    public void writeStartArray() throws IOException {
+        if (json == null)
+            json = new JsonWriter(writer);
+
+        json.beginArray();
     }
 
     @Override
@@ -26,28 +54,8 @@ public class GsonGenerator implements JsonGenerator {
     }
 
     @Override
-    public void writeStartObject() throws IOException {
-        json.beginObject();
-    }
-
-    @Override
-    public void writeStartArray() throws IOException {
-        json.beginArray();
-    }
-
-    @Override
-    public void writeRaw(final String arg0) throws IOException {
-        writer.write(arg0);
-    }
-
-    @Override
     public void writeObject(final Object arg0) throws IOException {
-        gson.toJson(arg0, writer);
-    }
-
-    @Override
-    public void writeNumber(final int arg0) throws IOException {
-        json.value(arg0);
+        gson.toJson(arg0, arg0.getClass(), json);
     }
 
     @Override
@@ -67,12 +75,18 @@ public class GsonGenerator implements JsonGenerator {
 
     @Override
     public void flush() throws IOException {
-        json.flush();
+        if (json != null)
+            json.flush();
+        else
+            writer.flush();
     }
 
     @Override
     public void close() throws IOException {
-        json.close();
+        if (json != null)
+            json.close();
+        else
+            writer.close();
     }
 
 }
