@@ -18,6 +18,7 @@ apply plugin: 'android-library'
 dependencies {
     compile fileTree(dir: 'libs')
 
+    compile 'com.google.code.gson:gson:2.2.4'
     compile 'org.codehaus.jackson:jackson-core-asl:1.9.13'
     compile 'org.codehaus.jackson:jackson-mapper-asl:1.9.13'
 
