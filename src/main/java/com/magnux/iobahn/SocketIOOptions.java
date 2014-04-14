@@ -9,6 +9,21 @@ public class SocketIOOptions extends WebSocketOptions {
 
     private JsonAdapter jsonAdapter;
 
+    public SocketIOOptions() {
+        super();
+    }
+
+    /**
+     * Copy constructor
+     * 
+     * @param options
+     */
+    public SocketIOOptions(final SocketIOOptions options) {
+        super(options);
+        
+        jsonAdapter = options.jsonAdapter;
+    }
+
     /**
      * The type of JsonAdapter to use; defaults to
      *  using Jackson, for backwards compatibility

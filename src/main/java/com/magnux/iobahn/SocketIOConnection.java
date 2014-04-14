@@ -62,6 +62,12 @@ public class SocketIOConnection extends WebSocketConnection implements SocketIO 
 
     // / The session handler provided to connect().
     private SocketIO.ConnectionHandler mSessionHandler;
+    
+    /**
+     * Autobahn creates a COPY of the input options, yet makes it
+     *  accessible. Insanity
+     */
+    private SocketIOOptions mIOOptions;
 
     /**
      * Create the connection transmitting leg writer.
@@ -72,7 +78,7 @@ public class SocketIOConnection extends WebSocketConnection implements SocketIO 
         mWriterThread = new HandlerThread("SocketIOWriter");
         mWriterThread.start();
         mWriter = new SocketIOWriter(mWriterThread.getLooper(), mMasterHandler, 
-            mTransportChannel, (SocketIOOptions) mOptions);
+            mTransportChannel, mIOOptions);
 
         if (DEBUG)
             Log.d(TAG, "writer created and started");
@@ -84,7 +90,7 @@ public class SocketIOConnection extends WebSocketConnection implements SocketIO 
     @Override
     protected void createReader() {
         mReader = new SocketIOReader(mEvents, mMasterHandler, mTransportChannel, 
-            (SocketIOOptions) mOptions, "SocketIOReader");
+            mIOOptions, "SocketIOReader");
         mReader.start();
 
         if (DEBUG)
@@ -113,7 +119,9 @@ public class SocketIOConnection extends WebSocketConnection implements SocketIO 
 
        mSessionHandler = sessionHandler;
        mEvents.clear();
-       mOptions = options;
+       
+       // make a copy like autobahn does (sigh)
+       mIOOptions = new SocketIOOptions(options);
        
        new SocketIOConnector(wsUri, sessionHandler, options).execute();
     }
