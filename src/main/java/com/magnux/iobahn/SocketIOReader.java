@@ -4,11 +4,6 @@ import java.io.IOException;
 import java.nio.channels.SocketChannel;
 import java.util.concurrent.ConcurrentHashMap;
 
-import org.codehaus.jackson.JsonFactory;
-import org.codehaus.jackson.JsonParseException;
-import org.codehaus.jackson.JsonParser;
-import org.codehaus.jackson.map.DeserializationConfig;
-import org.codehaus.jackson.map.ObjectMapper;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -17,10 +12,10 @@ import android.os.Handler;
 import android.util.Log;
 
 import com.magnux.iobahn.SocketIOConnection.EventMeta;
+import com.magnux.iobahn.json.JsonAdapter;
 
 import de.tavendo.autobahn.WebSocketException;
 import de.tavendo.autobahn.WebSocketMessage;
-import de.tavendo.autobahn.WebSocketOptions;
 import de.tavendo.autobahn.WebSocketReader;
 
 public class SocketIOReader extends WebSocketReader {
@@ -28,11 +23,8 @@ public class SocketIOReader extends WebSocketReader {
     private static final boolean DEBUG = true;
     private static final String TAG = SocketIOReader.class.getName();
 
-    // / Jackson JSON-to-object mapper.
-    private final ObjectMapper mJsonMapper;
-
-    // / Jackson JSON factory from which we create JSON parsers.
-    private final JsonFactory mJsonFactory;
+    /** New JsonAdapter */
+    private final JsonAdapter mJsonAdapter;
 
     // / Holds reference to event subscription map created on master.
     private final ConcurrentHashMap<String, EventMeta<?>> mEvents;
@@ -53,24 +45,24 @@ public class SocketIOReader extends WebSocketReader {
      */
     public SocketIOReader(final ConcurrentHashMap<String, EventMeta<?>> events, 
             final Handler master, final SocketChannel socket,
-            final WebSocketOptions options, final String threadName) {
+            final SocketIOOptions options, final String threadName) {
         super(master, socket, options, threadName);
         mEvents = events;
 
-        mJsonMapper = new ObjectMapper();
-        mJsonMapper.configure(DeserializationConfig.Feature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-        mJsonFactory = mJsonMapper.getJsonFactory();
+        mJsonAdapter = options.getJsonAdapter();
 
         if (DEBUG)
             Log.d(TAG, "created");
     }
 
-    protected void onTextMessage(String payload) {
+    @Override
+    protected void onTextMessage(final String payload) {
         // TODO: make error propagation consistent
         notify(new WebSocketMessage.Error(new WebSocketException("non-raw receive of text message")));
     }
 
-    protected void onBinaryMessage(byte[] payload) {
+    @Override
+    protected void onBinaryMessage(final byte[] payload) {
         // TODO: make error propagation consistent
         notify(new WebSocketMessage.Error(new WebSocketException("received binary message")));
     }
@@ -79,12 +71,13 @@ public class SocketIOReader extends WebSocketReader {
      * Unwraps a SocketIO message which is a WebSockets text message with JSON
      * payload conforming to SocketIO.
      */
-    protected void onRawTextMessage(byte[] payload) {
+    @Override
+    protected void onRawTextMessage(final byte[] payload) {
 
         try {
-            String message = new String(payload, "UTF8");
-            String[] parts = message.split(":", 4);
-            int msgType = Integer.parseInt(parts[0]);
+            final String message = new String(payload, "UTF8");
+            final String[] parts = message.split(":", 4);
+            final int msgType = Integer.parseInt(parts[0]);
 
             switch (msgType) {
 
@@ -116,18 +109,9 @@ public class SocketIOReader extends WebSocketReader {
                         final String arg = args.getString(0); // This only supports
                                                             // sending one argument!!!
 
-                        final JsonParser parser = mJsonFactory.createJsonParser(arg);
-
                         final EventMeta<?> meta = mEvents.get(name);
-                        if (meta.mEventClass != null) {
-                            event = parser.readValueAs(meta.mEventClass);
-                        } else if (meta.mEventTypeRef != null) {
-                            event = parser.readValueAs(meta.mEventTypeRef);
-                        } else {
-                            event = null;
-                        }
-
-                        parser.close();
+                        
+                        event = mJsonAdapter.readJson(meta, arg);
                     } else {
                         event = null;
                     }
@@ -153,16 +137,11 @@ public class SocketIOReader extends WebSocketReader {
                     Log.d(TAG, "unknown code");
             }
 
-        } catch (JSONException e) {
+        } catch (final JSONException e) {
             if (DEBUG)
                 e.printStackTrace();
 
-        } catch (JsonParseException e) {
-
-            if (DEBUG)
-                e.printStackTrace();
-
-        } catch (IOException e) {
+        } catch (final IOException e) {
 
             if (DEBUG)
                 e.printStackTrace();

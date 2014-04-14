@@ -3,18 +3,18 @@ package com.magnux.iobahn;
 import java.io.IOException;
 import java.nio.channels.SocketChannel;
 
-import org.codehaus.jackson.JsonFactory;
 import org.codehaus.jackson.JsonGenerationException;
-import org.codehaus.jackson.JsonGenerator;
 import org.codehaus.jackson.map.JsonMappingException;
-import org.codehaus.jackson.map.MappingJsonFactory;
 
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
+
+import com.magnux.iobahn.json.JsonAdapter;
+import com.magnux.iobahn.json.JsonGenerator;
+
 import de.tavendo.autobahn.NoCopyByteArrayOutputStream;
 import de.tavendo.autobahn.WebSocketException;
-import de.tavendo.autobahn.WebSocketOptions;
 import de.tavendo.autobahn.WebSocketWriter;
 
 public class SocketIOWriter extends WebSocketWriter {
@@ -25,7 +25,7 @@ public class SocketIOWriter extends WebSocketWriter {
     /**
      * This is the Jackson JSON factory we use to create JSON generators.
      */
-    private final JsonFactory mJsonFactory;
+    private final JsonAdapter mJsonAdapter;
 
     /**
      * This is where we buffer the JSON serialization of SocketIO messages.
@@ -46,11 +46,12 @@ public class SocketIOWriter extends WebSocketWriter {
      * @param options
      *            WebSockets options for the underlying WebSockets connection.
      */
-    public SocketIOWriter(Looper looper, Handler master, SocketChannel socket, WebSocketOptions options) {
+    public SocketIOWriter(final Looper looper, final Handler master, final SocketChannel socket, 
+            final SocketIOOptions options) {
 
         super(looper, master, socket, options);
 
-        mJsonFactory = new MappingJsonFactory();
+        mJsonAdapter = options.getJsonAdapter();
         mPayload = new NoCopyByteArrayOutputStream();
 
         if (DEBUG)
@@ -61,19 +62,20 @@ public class SocketIOWriter extends WebSocketWriter {
      * Called from WebSocketWriter when it receives a message in it's message
      * loop it does not recognize.
      */
-    protected void processAppMessage(Object msg) throws WebSocketException, IOException {
+    @Override
+    protected void processAppMessage(final Object msg) throws WebSocketException, IOException {
 
         mPayload.reset();
 
         // creating a JSON generator is supposed to be a light-weight operation
-        JsonGenerator generator = mJsonFactory.createJsonGenerator(mPayload);
+        final JsonGenerator generator = mJsonAdapter.createJsonGenerator(mPayload);
 
         try {
 
             if (msg instanceof SocketIOMessage.Disconnect) {
 
                 generator.writeNumber(SocketIOMessage.MESSAGE_TYPE_DISCONNECT);
-                SocketIOMessage.Disconnect dis = (SocketIOMessage.Disconnect) msg;
+                final SocketIOMessage.Disconnect dis = (SocketIOMessage.Disconnect) msg;
                 
                 if (dis.mEndpoint != null){
                 	generator.writeRaw("::/");
@@ -87,7 +89,7 @@ public class SocketIOWriter extends WebSocketWriter {
 
             } else if (msg instanceof SocketIOMessage.Emit) {
 
-                SocketIOMessage.Emit emit = (SocketIOMessage.Emit) msg;
+                final SocketIOMessage.Emit emit = (SocketIOMessage.Emit) msg;
                 
                 generator.writeNumber(SocketIOMessage.MESSAGE_TYPE_EVENT);
                 generator.writeRaw(":::");
@@ -102,7 +104,7 @@ public class SocketIOWriter extends WebSocketWriter {
 
             } else if (msg instanceof SocketIOMessage.ACK) {
 
-                SocketIOMessage.ACK ack = (SocketIOMessage.ACK) msg;
+                final SocketIOMessage.ACK ack = (SocketIOMessage.ACK) msg;
 
                 generator.writeNumber(SocketIOMessage.MESSAGE_TYPE_ACK);
                 generator.writeRaw(":::");
@@ -113,12 +115,12 @@ public class SocketIOWriter extends WebSocketWriter {
                 // this should not happen, but to be sure
                 throw new WebSocketException("invalid message received by SocketIOWriter");
             }
-        } catch (JsonGenerationException e) {
+        } catch (final JsonGenerationException e) {
 
             // this may happen, and we need to wrap the error
             throw new WebSocketException("JSON serialization error (" + e.toString() + ")");
 
-        } catch (JsonMappingException e) {
+        } catch (final JsonMappingException e) {
 
             // this may happen, and we need to wrap the error
             throw new WebSocketException("JSON serialization error (" + e.toString() + ")");

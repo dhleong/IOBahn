@@ -4,9 +4,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.http.HttpResponse;
@@ -30,14 +27,6 @@ public class SocketIOConnection extends WebSocketConnection implements SocketIO 
     // / The message handler of the background writer.
     protected SocketIOWriter mWriterHandler;
 
-    // / RNG for IDs.
-    private final Random mRng = new Random();
-
-    // / Set of chars to be used for IDs.
-    private static final char[] mBase64Chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
-            .toCharArray();
-
-    
     private static int mHeartbeat = 10000;
     
     /**
@@ -46,7 +35,7 @@ public class SocketIOConnection extends WebSocketConnection implements SocketIO 
     public static class EventMeta<T> {
 
         // Event handler to be fired on.
-        public final EventHandler mEventHandler;
+        public final EventHandler<T> mEventHandler;
 
         // Desired event type or null.
         public final Class<T> mEventClass;
@@ -54,13 +43,13 @@ public class SocketIOConnection extends WebSocketConnection implements SocketIO 
         // Desired event type or null.
         public final TypeReference<T> mEventTypeRef;
 
-        EventMeta(EventHandler<T> handler, Class<T> resultClass) {
+        EventMeta(final EventHandler<T> handler, final Class<T> resultClass) {
             this.mEventHandler = handler;
             this.mEventClass = resultClass;
             this.mEventTypeRef = null;
         }
 
-        EventMeta(EventHandler<T> handler, TypeReference<T> resultTypeReference) {
+        EventMeta(final EventHandler<T> handler, final TypeReference<T> resultTypeReference) {
             this.mEventHandler = handler;
             this.mEventClass = null;
             this.mEventTypeRef = resultTypeReference;
@@ -77,11 +66,13 @@ public class SocketIOConnection extends WebSocketConnection implements SocketIO 
     /**
      * Create the connection transmitting leg writer.
      */
+    @Override
     protected void createWriter() {
 
         mWriterThread = new HandlerThread("SocketIOWriter");
         mWriterThread.start();
-        mWriter = new SocketIOWriter(mWriterThread.getLooper(), mMasterHandler, mTransportChannel, mOptions);
+        mWriter = new SocketIOWriter(mWriterThread.getLooper(), mMasterHandler, 
+            mTransportChannel, (SocketIOOptions) mOptions);
 
         if (DEBUG)
             Log.d(TAG, "writer created and started");
@@ -90,8 +81,10 @@ public class SocketIOConnection extends WebSocketConnection implements SocketIO 
     /**
      * Create the connection receiving leg reader.
      */
+    @Override
     protected void createReader() {
-        mReader = new SocketIOReader(mEvents, mMasterHandler, mTransportChannel, mOptions, "SocketIOReader");
+        mReader = new SocketIOReader(mEvents, mMasterHandler, mTransportChannel, 
+            (SocketIOOptions) mOptions, "SocketIOReader");
         mReader.start();
 
         if (DEBUG)
@@ -99,8 +92,8 @@ public class SocketIOConnection extends WebSocketConnection implements SocketIO 
     }
         
     @Override
-    public void connect(String wsUri, SocketIO.ConnectionHandler sessionHandler) {
-        SocketIOOptions options = new SocketIOOptions();
+    public void connect(final String wsUri, final SocketIO.ConnectionHandler sessionHandler) {
+        final SocketIOOptions options = new SocketIOOptions();
         options.setReceiveTextMessagesRaw(true);
         options.setMaxMessagePayloadSize(64*1024);
         options.setMaxFramePayloadSize(64*1024);
@@ -116,10 +109,11 @@ public class SocketIOConnection extends WebSocketConnection implements SocketIO 
      * @param sessionHandler   The session handler to fire callbacks on.
      */
     @Override
-    public void connect(String wsUri, SocketIO.ConnectionHandler sessionHandler, SocketIOOptions options) {
+    public void connect(final String wsUri, final SocketIO.ConnectionHandler sessionHandler, final SocketIOOptions options) {
 
        mSessionHandler = sessionHandler;
        mEvents.clear();
+       mOptions = options;
        
        new SocketIOConnector(wsUri, sessionHandler, options).execute();
     }
@@ -143,7 +137,7 @@ public class SocketIOConnection extends WebSocketConnection implements SocketIO 
         }
         
         @Override
-        protected String doInBackground(Void... params) {
+        protected String doInBackground(final Void... params) {
 
             Thread.currentThread().setName("SocketIOConnector");
 
@@ -167,13 +161,13 @@ public class SocketIOConnection extends WebSocketConnection implements SocketIO 
                 wsUri = wsUri+"/socket.io/1/websocket/" + sessionId;
                 
                 return null;
-            } catch (Exception e) {
+            } catch (final Exception e) {
                 return e.getMessage();
             }
         }
 
         @Override
-        protected void onPostExecute(String reason) {
+        protected void onPostExecute(final String reason) {
             if (reason != null) {
                 mSessionHandler.onClose(WebSocketConnectionHandler.CLOSE_CANNOT_CONNECT, reason);
             } else {
@@ -184,9 +178,9 @@ public class SocketIOConnection extends WebSocketConnection implements SocketIO 
     }
     
     private static String downloadUriAsString(final HttpUriRequest req) throws IOException {
-        AndroidHttpClient client = AndroidHttpClient.newInstance("IOBahn");
+        final AndroidHttpClient client = AndroidHttpClient.newInstance("IOBahn");
         try {
-            HttpResponse res = client.execute(req);
+            final HttpResponse res = client.execute(req);
             return readToEnd(res.getEntity().getContent());
         }
         finally {
@@ -194,14 +188,14 @@ public class SocketIOConnection extends WebSocketConnection implements SocketIO 
         }
     }
     
-    private static String readToEnd(InputStream input) throws IOException {
+    private static String readToEnd(final InputStream input) throws IOException {
         return new String(readToEndAsArray(input));
     }
     
-    private static byte[] readToEndAsArray(InputStream input) throws IOException {
-        DataInputStream dis = new DataInputStream(input);
-        byte[] stuff = new byte[1024];
-        ByteArrayOutputStream buff = new ByteArrayOutputStream();
+    private static byte[] readToEndAsArray(final InputStream input) throws IOException {
+        final DataInputStream dis = new DataInputStream(input);
+        final byte[] stuff = new byte[1024];
+        final ByteArrayOutputStream buff = new ByteArrayOutputStream();
         int read = 0;
         while ((read = dis.read(stuff)) != -1) {
             buff.write(stuff, 0, read);
@@ -210,7 +204,7 @@ public class SocketIOConnection extends WebSocketConnection implements SocketIO 
         return buff.toByteArray();
     }
     
-    private void resumeConnect(String wsUri, SocketIO.ConnectionHandler sessionHandler, SocketIOOptions options){
+    private void resumeConnect(final String wsUri, final SocketIO.ConnectionHandler sessionHandler, final SocketIOOptions options){
         
         try {
             connect(wsUri, new String[] {"socket.io"}, new WebSocketConnectionHandler() {
@@ -225,7 +219,7 @@ public class SocketIOConnection extends WebSocketConnection implements SocketIO 
                }
 
                @Override
-               public void onClose(int code, String reason) {
+               public void onClose(final int code, final String reason) {
                   if (mSessionHandler != null) {
                      mSessionHandler.onClose(code, reason);
                   } else {
@@ -235,7 +229,7 @@ public class SocketIOConnection extends WebSocketConnection implements SocketIO 
 
             }, options);
 
-         } catch (WebSocketException e) {
+         } catch (final WebSocketException e) {
 
             if (mSessionHandler != null) {
                mSessionHandler.onClose(WebSocketConnectionHandler.CLOSE_CANNOT_CONNECT, "cannot connect (" + e.toString() + ")");
@@ -249,23 +243,25 @@ public class SocketIOConnection extends WebSocketConnection implements SocketIO 
     /**
      * Process SocketIO messages coming from the background reader.
      */
-    protected void processAppMessage(Object message) {
+    @Override
+    @SuppressWarnings({ "rawtypes", "unchecked" })
+    protected void processAppMessage(final Object message) {
 
        if (message instanceof SocketIOMessage.Event) {
 
-           SocketIOMessage.Event event = (SocketIOMessage.Event) message;
+           final SocketIOMessage.Event event = (SocketIOMessage.Event) message;
 
           if (mEvents.containsKey(event.mName)) {
-             final EventMeta<?> meta = mEvents.get(event.mName);
+             final EventMeta meta = mEvents.get(event.mName);
              if (meta != null && meta.mEventHandler != null) {
                 meta.mEventHandler.onEvent(event.mEvent);
-                SocketIOMessage.ACK ack = new SocketIOMessage.ACK(event.mId,null);
+                final SocketIOMessage.ACK ack = new SocketIOMessage.ACK(event.mId,null);
                 mWriter.forward(ack);
              }
           }
        } else if (message instanceof SocketIOMessage.Connect) {
 
-           SocketIOMessage.Connect connect = (SocketIOMessage.Connect) message;
+           final SocketIOMessage.Connect connect = (SocketIOMessage.Connect) message;
            startHeartbeat();
            
           if (DEBUG) 
@@ -309,7 +305,7 @@ public class SocketIOConnection extends WebSocketConnection implements SocketIO 
 
     @Override
     public void emit(final String name, final Object event) {
-        SocketIOMessage.Emit msg = new SocketIOMessage.Emit(name, event);
+        final SocketIOMessage.Emit msg = new SocketIOMessage.Emit(name, event);
         mWriter.forward(msg);
     }
     
@@ -322,7 +318,7 @@ public class SocketIOConnection extends WebSocketConnection implements SocketIO 
                 while (isConnected()) {
                     try {
                         Thread.sleep(mHeartbeat);
-                    } catch (InterruptedException e) {
+                    } catch (final InterruptedException e) {
                         e.printStackTrace();
                     }
                     final SocketIOMessage.Heartbeat hbeat = new SocketIOMessage.Heartbeat();
