@@ -11,11 +11,11 @@ import com.magnux.iobahn.json.JsonGenerator;
 public class GsonGenerator implements JsonGenerator {
 
     private final OutputStreamWriter writer;
-    private final Gson gson;
+    private final GsonJsonAdapter gson;
 
     private JsonWriter json;
 
-    public GsonGenerator(final Gson gson, final OutputStream out) {
+    public GsonGenerator(final GsonJsonAdapter gson, final OutputStream out) {
         this.gson = gson;
         writer = new OutputStreamWriter(out);
     }
@@ -55,7 +55,7 @@ public class GsonGenerator implements JsonGenerator {
 
     @Override
     public void writeObject(final Object arg0) throws IOException {
-        gson.toJson(arg0, arg0.getClass(), json);
+        gson.write(arg0, json);
     }
 
     @Override

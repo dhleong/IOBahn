@@ -19,7 +19,7 @@ import de.tavendo.autobahn.WebSocketWriter;
 
 public class SocketIOWriter extends WebSocketWriter {
 
-    private static final boolean DEBUG = true;
+    private static final boolean DEBUG = false;
     private static final String TAG = SocketIOWriter.class.getName();
 
     /**
