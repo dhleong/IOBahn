@@ -62,6 +62,13 @@ android.libraryVariants.all { variant ->
     artifacts.add('archives', task);
 }
 
-task copyjar(type: Exec) {
-    commandLine 'cp', 'build/libs/IOBahn.jar', '../robocon/library/libs/'
+
+task cleanjar(type: Exec) {
+    // jarjar refuses to run with these things present
+    commandLine 'zip', '-d', 'build/libs/IOBahn.jar', 
+        'META-INF/ASL2.0', 'META-INF/LICENSE', 'META-INF/NOTICE'
+}
+task copyjar(type: Exec, dependsOn: cleanjar) {
+    commandLine 'java', '-jar', './jarjar-1.4.jar', 
+        'process', './jarjar.rules', 'build/libs/IOBahn.jar', '../robocon/library/libs/IOBahn.jar'
 }
